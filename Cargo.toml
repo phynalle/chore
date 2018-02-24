@@ -1,0 +1,12 @@
+[package]
+name = "chore"
+version = "0.1.0"
+authors = ["phynalle <phynalism@gmail.com>"]
+
+[dependencies]
+"serde" = "1.0"
+"serde_derive" = "1.0"
+"serde_json" = "1.0"
+"clap" = "~2.29"
+"rocksdb" = "0.9"
+"rand" = "0.4"
