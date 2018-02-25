@@ -1,12 +1,10 @@
 use std::env;
 use std::error;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::result;
 use rocksdb::{self, DB};
 use serde_json;
-
-use path::normalize;
 
 type Result<T> = result::Result<T, TaskError>;
 
@@ -19,9 +17,14 @@ impl TaskSystem {
         TaskSystem { db }
     }
 
+    fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf> {
+        use path::normalize;
+        normalize(&path).ok_or(TaskError::InvalidPath)
+    }
+
     fn key<P: AsRef<Path>>(path: P) -> Result<String> {
-        let normalized = normalize(path).ok_or(TaskError::InvalidPath)?;
-        Ok(format!("task.{}", normalized.to_string_lossy()))
+        let abs_path = TaskSystem::normalize(path)?;
+        Ok(format!("task.{}", abs_path.to_string_lossy()))
     }
 
     pub fn exists<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
@@ -33,10 +36,10 @@ impl TaskSystem {
     }
 
     pub fn open<P: AsRef<Path>>(&self, path: P) -> Result<Task> {
-        let normalized = normalize(&path).ok_or(TaskError::InvalidPath)?;
-        let key = TaskSystem::key(&path)?;
+        let abs_path = TaskSystem::normalize(&path)?;
+        let key = TaskSystem::key(&abs_path)?;
         match self.db.get(key.as_bytes())? {
-            Some(v) => Task::from_slice(&normalized, &v),
+            Some(v) => Task::from_slice(&abs_path, &v),
             None => Err(TaskError::NotFound),
         }
     }
@@ -153,18 +156,19 @@ impl Task {
         }
     }
 
-    fn from_slice<P: AsRef<Path>>(path: P, v: &[u8]) -> Result<Task> {
-        assert!(path.as_ref().is_absolute());
+    fn from_slice<P: AsRef<Path>>(abs_path: P, v: &[u8]) -> Result<Task> {
+        assert!(abs_path.as_ref().is_absolute());
 
         let inner: Inner = serde_json::from_slice(&v)?;
         let name = format!(
             "{}",
-            path.as_ref()
+            abs_path
+                .as_ref()
                 .file_name()
                 .ok_or(TaskError::InvalidPath)?
                 .to_string_lossy()
         );
-        let path = format!("{}", path.as_ref().to_string_lossy());
+        let path = format!("{}", abs_path.as_ref().to_string_lossy());
         Ok(Task { inner, name, path })
     }
 

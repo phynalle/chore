@@ -10,8 +10,12 @@ use error::{Error, Result};
 use task::{Task, TaskError, TaskSystem};
 use tempfile::TempFile;
 
-pub trait Cmd {
-    fn run(&self) -> Result<()>;
+fn validate_task_name(task: &str) -> Result<()> {
+    if task == "." || task == ".." || task.contains('/') {
+        Err(Error::new("Invalid task name"))
+    } else {
+        Ok(())
+    }
 }
 
 fn try_overwrite(task: &str) -> bool {
@@ -32,6 +36,10 @@ fn try_overwrite(task: &str) -> bool {
     }
 }
 
+pub trait Cmd {
+    fn run(&self) -> Result<()>;
+}
+
 pub struct New {
     pub dir: PathBuf,
     pub task: String,
@@ -42,6 +50,8 @@ pub struct New {
 
 impl Cmd for New {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.task)?;
+
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
 
@@ -50,7 +60,6 @@ impl Cmd for New {
         }
 
         let mut task = Task::current(&self.task);
-
         let mut file: Box<Read> = if !self.filename.is_empty() {
             Box::new(File::open(&self.filename)?)
         } else if !self.src_task.is_empty() {
@@ -88,6 +97,8 @@ pub struct Edit {
 
 impl Cmd for Edit {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.task)?;
+
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
         let mut task = match ts.open(&self.task) {
@@ -129,6 +140,8 @@ pub struct Run {
 
 impl Cmd for Run {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.task)?;
+
         let mut dir = self.dir.clone();
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
@@ -180,6 +193,8 @@ pub struct Show {
 
 impl Cmd for Show {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.task)?;
+
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
         let task: Task = ts.open(&self.task)?;
@@ -199,6 +214,8 @@ pub struct Remove {
 
 impl Cmd for Remove {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.task)?;
+
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
         ts.remove(&self.task).map_err(|e| e.into())
@@ -245,6 +262,9 @@ pub struct Rename {
 
 impl Cmd for Rename {
     fn run(&self) -> Result<()> {
+        validate_task_name(&self.from)?;
+        validate_task_name(&self.to)?;
+
         let db = open_database()?;
         let ts = TaskSystem::new(db);
 
