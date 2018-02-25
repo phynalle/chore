@@ -228,6 +228,28 @@ impl Cmd for List {
     }
 }
 
+pub struct Rename {
+    pub from: String,
+    pub to: String,
+}
+
+impl Cmd for Rename {
+    fn run(&self) -> Result<()> {
+        let db = open_database()?;
+        let ts = TaskSystem::new(db);
+
+        let from_task = ts.open(&self.from)?;
+        let mut to_task = Task::current(&self.to);
+        to_task.copy(&from_task);
+
+        let mut batch = ts.batch();
+        batch.save(&to_task)?;
+        batch.remove(&self.from)?;
+        batch.commit()?;
+        Ok(())
+    }
+}
+
 fn create_tempfile() -> Result<TempFile> {
     let length = 8;
     let charset = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes();

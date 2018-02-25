@@ -29,6 +29,11 @@ impl Chore {
                 (about: "Print the details of the task")
                 (@arg task: +required)
             )
+            (@subcommand rename =>
+                (about: "Rename a task")
+                (@arg task: +required)
+                (@arg new_name: +required)
+            )
             (@subcommand rm =>
                 (about: "Remove a task")
                 (@arg task: +required)

@@ -42,15 +42,20 @@ impl TaskSystem {
         }
     }
 
-    pub fn remove<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let key = TaskSystem::key(path)?;
-        self.db.delete(key.as_bytes()).map_err(|e| e.into())
+    pub fn save(&self, task: &Task) -> Result<()> {
+        let mut batch = self.batch();
+        batch.save(task)?;
+        batch.commit()
     }
 
-    pub fn save(&self, task: &Task) -> Result<()> {
-        let key = format!("task.{}", task.path).into_bytes();
-        let value = serde_json::to_vec(&task.inner)?;
-        self.db.put(&key, &value).map_err(|e| e.into())
+    pub fn remove<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let mut batch = self.batch();
+        batch.remove(path);
+        batch.commit()
+    }
+
+    pub fn remove_task(&self, task: Task) -> Result<()> {
+        self.remove(task.path)
     }
 
     // scan is a expensive method so it should be used carefully.
@@ -65,6 +70,39 @@ impl TaskSystem {
             prefix,
             current_only,
         })
+    }
+
+    pub fn batch<'a>(&'a self) -> WriteBatch<'a> {
+        WriteBatch {
+            ts: self,
+            batch: rocksdb::WriteBatch::default(),
+        }
+    }
+}
+
+pub struct WriteBatch<'a> {
+    ts: &'a TaskSystem,
+    batch: rocksdb::WriteBatch,
+}
+
+impl<'a> WriteBatch<'a> {
+    pub fn save(&mut self, task: &Task) -> Result<()> {
+        let key = format!("task.{}", task.path).into_bytes();
+        let value = serde_json::to_vec(&task.inner)?;
+        self.batch.put(&key, &value).map_err(|e| e.into())
+    }
+
+    pub fn remove<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        let key = TaskSystem::key(path)?;
+        self.batch.delete(key.as_bytes()).map_err(|e| e.into())
+    }
+
+    pub fn remove_task(&mut self, task: Task) -> Result<()> {
+        self.remove(task.path)
+    }
+
+    pub fn commit(self) -> Result<()> {
+        self.ts.db.write(self.batch).map_err(|e| e.into())
     }
 }
 
@@ -154,9 +192,13 @@ impl Task {
     pub fn set_content(&mut self, content: Vec<u8>) {
         self.inner.content = content;
     }
+
+    pub fn copy(&mut self, task: &Task) {
+        self.inner = task.inner.clone();
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Inner {
     pub inherit: bool,
     pub content: Vec<u8>,

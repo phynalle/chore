@@ -48,6 +48,10 @@ fn main() {
         "show" => Box::new(command::Show {
             task: submatches.value_of("task").unwrap().to_owned(),
         }),
+        "rename" => Box::new(command::Rename {
+            from: submatches.value_of("task").unwrap().to_owned(),
+            to: submatches.value_of("new_name").unwrap().to_owned(),
+        }),
         "rm" => Box::new(command::Remove {
             task: submatches.value_of("task").unwrap().to_owned(),
         }),
