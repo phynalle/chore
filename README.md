@@ -5,15 +5,11 @@ You can create your own tasks belonging to a directory in which you can only exe
 ## Usage
 ```sh
 chore `subcommand` [parameters]
-
 chore new `task` [filename] [--inherit]
-
 chore edit `task`
-
 chore run `task`
-
+cargo rename `task` `new name`
 chore rm `task`
-
 chore ls
 ```
 
@@ -49,5 +45,5 @@ chore is a very young project so it isn't featured fully.
 In current version, `sh` is the only supported script language and `vi` is the only supported editor.
 
 Don't be disappointed yet. Fortunately, You have a cool solution.
-Try to alias the editor you use to 'vi' and script-executable to 'sh' just like `alias vi=vscode --wait` and `alias sh=python`.
-But I don't extremely recommend you to do so. you may know the reason.
+Try to duplicate the editor you use to 'vi' and script-executable to 'sh' just like `copy /path/to/editor /bin/vi` --wait` and `copy /path/to/python /bin/sh`.
+Just kidding. I don't extremely recommend you to do so. you may know the reason.
