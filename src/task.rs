@@ -49,7 +49,7 @@ impl TaskSystem {
 
     pub fn remove<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let mut batch = self.batch();
-        batch.remove(path);
+        batch.remove(path)?;
         batch.commit()
     }
 
@@ -186,6 +186,10 @@ impl Task {
 
     pub fn content(&self) -> &[u8] {
         &self.inner.content
+    }
+
+    pub fn take(self) -> Vec<u8> {
+        self.inner.content
     }
 
     pub fn set_content(&mut self, content: Vec<u8>) {

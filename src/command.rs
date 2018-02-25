@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout, BufRead, Read, Write};
+use std::io::{stdin, stdout, Cursor, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::fs::File;
@@ -36,6 +36,7 @@ pub struct New {
     pub dir: PathBuf,
     pub task: String,
     pub filename: String,
+    pub src_task: String,
     pub inherit: bool,
 }
 
@@ -49,7 +50,13 @@ impl Cmd for New {
         }
 
         let mut task = Task::current(&self.task);
-        let mut file: Box<Read> = if self.filename.is_empty() {
+
+        let mut file: Box<Read> = if !self.filename.is_empty() {
+            Box::new(File::open(&self.filename)?)
+        } else if !self.src_task.is_empty() {
+            let mut task = ts.open(&self.src_task)?;
+            Box::new(Cursor::new(task.take()))
+        } else {
             let mut file = create_tempfile().expect("failed to open temp file");
             file.write_all(task.content())?;
             file.close();
@@ -63,8 +70,6 @@ impl Cmd for New {
             } else {
                 return Err(Error::new("failed to write file"));
             }
-        } else {
-            Box::new(File::open(&self.filename)?)
         };
 
         let mut content = Vec::new();
@@ -253,7 +258,7 @@ impl Cmd for Rename {
 
         let mut batch = ts.batch();
         batch.save(&to_task)?;
-        batch.remove(&self.from)?;
+        batch.remove_task(from_task)?;
         batch.commit()?;
         Ok(())
     }

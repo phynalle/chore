@@ -32,6 +32,10 @@ fn main() {
                 .value_of("filename")
                 .map(|v| v.to_owned())
                 .unwrap_or_default(),
+            src_task: submatches
+                .value_of("src_task")
+                .map(|v| v.to_owned())
+                .unwrap_or_default(),
             inherit: submatches.is_present("inherit"),
         }),
         "edit" => Box::new(command::Edit {
