@@ -1,4 +1,4 @@
-use std::io::{Read, Write, stdin, stdout};
+use std::io::{stdin, stdout, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::fs::File;
@@ -9,7 +9,6 @@ use db::open_database;
 use error::{Error, Result};
 use task::{Task, TaskError, TaskSystem};
 use tempfile::TempFile;
-
 
 pub trait Cmd {
     fn run(&self) -> Result<()>;

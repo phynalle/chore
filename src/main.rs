@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate serde_derive;
+extern crate rand;
 extern crate rocksdb;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
-extern crate rand;
 
 use std::env;
 
