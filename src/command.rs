@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout, Read, Write};
+use std::io::{stdin, stdout, BufRead, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::fs::File;
@@ -14,6 +14,24 @@ pub trait Cmd {
     fn run(&self) -> Result<()>;
 }
 
+fn try_overwrite(task: &str) -> bool {
+    let (i, o) = (stdin(), stdout());
+
+    print!(
+        "task '{}' already exists. do you want to overwrite it? [y/n]: ",
+        task
+    );
+    if o.lock().flush().is_err() {
+        return false;
+    }
+
+    let mut input = String::new();
+    match i.read_line(&mut input) {
+        Ok(_) => input.starts_with('y'),
+        _ => false,
+    }
+}
+
 pub struct New {
     pub dir: PathBuf,
     pub task: String,
@@ -26,21 +44,8 @@ impl Cmd for New {
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
 
-        if ts.exists(&self.task)? {
-            // Already exist: Ask to overwrite it
-            print!(
-                "{} already exists. do you want to overwrite it? [y/n]: ",
-                self.task
-            );
-
-            let (i, o) = (stdin(), stdout());
-            o.lock().flush()?;
-
-            let mut arr = [0u8; 1];
-            i.lock().read(&mut arr)?;
-            if arr[0] != b'y' {
-                return Ok(());
-            }
+        if ts.exists(&self.task)? && !try_overwrite(&self.task) {
+            return Ok(());
         }
 
         let mut task = Task::current(&self.task);
@@ -239,6 +244,10 @@ impl Cmd for Rename {
         let ts = TaskSystem::new(db);
 
         let from_task = ts.open(&self.from)?;
+        if ts.exists(&self.to)? && !try_overwrite(&self.to) {
+            return Ok(());
+        }
+
         let mut to_task = Task::current(&self.to);
         to_task.copy(&from_task);
 

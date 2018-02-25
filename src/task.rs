@@ -3,7 +3,6 @@ use std::error;
 use std::fmt;
 use std::path::Path;
 use std::result;
-
 use rocksdb::{self, DB};
 use serde_json;
 
