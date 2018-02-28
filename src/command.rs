@@ -43,9 +43,11 @@ pub trait Cmd {
 pub struct New {
     pub dir: PathBuf,
     pub task: String,
+    pub inherit: bool,
     pub filename: String,
     pub src_task: String,
-    pub inherit: bool,
+    pub ext: String,
+    pub editor: Vec<String>,
 }
 
 impl Cmd for New {
@@ -66,11 +68,14 @@ impl Cmd for New {
             let mut task = ts.open(&self.src_task)?;
             Box::new(Cursor::new(task.take()))
         } else {
-            let mut file = create_tempfile().expect("failed to open temp file");
+            let mut file = create_tempfile(&self.ext).expect("failed to open temp file");
             file.write_all(task.content())?;
             file.close();
 
-            let mut cmd: Child = Command::new("vi").arg(file.path()).spawn()?;
+            let mut cmd: Child = Command::new(&self.editor[0])
+                .args(&self.editor[1..])
+                .arg(file.path())
+                .spawn()?;
             let exit = cmd.wait()?;
 
             if exit.success() {
@@ -83,11 +88,10 @@ impl Cmd for New {
 
         let mut content = Vec::new();
         let _ = file.read_to_end(&mut content)?;
+        task.set_extension(&self.ext);
         task.set_inherit(self.inherit);
         task.set_content(content);
-        ts.save(&task)?;
-
-        Ok(())
+        ts.save(&task).map_err(|e| e.into())
     }
 }
 
@@ -110,7 +114,7 @@ impl Cmd for Edit {
             Err(e) => return Err(From::from(e)),
         };
 
-        let mut file = create_tempfile().expect("failed to open temp file");
+        let mut file = create_tempfile(task.extension()).expect("failed to open temp file");
         file.write_all(task.content())?;
         file.close();
 
@@ -173,16 +177,20 @@ impl Cmd for Run {
             is_cwd = false;
         };
 
-        let mut file = create_tempfile().expect("failed to open temp file");
+        let mut file = create_tempfile(task.extension()).expect("failed to open temp file");
         file.write_all(task.content())?;
         file.close();
 
-        let mut cmd: Child = Command::new("sh")
+        Command::new("chmod")
+            .arg("+x")
             .arg(file.path())
-            .args(&self.args)
-            .spawn()?;
+            .spawn()?
+            .wait()?;
 
-        let _ = cmd.wait()?;
+        println!("path: {:?}", file.path());
+        let mut cmd = Command::new(file.path());
+        let mut child: Child = cmd.arg(file.path()).args(&self.args).spawn()?;
+        let _ = child.wait()?;
         Ok(())
     }
 }
@@ -274,7 +282,7 @@ impl Cmd for Rename {
         }
 
         let mut to_task = Task::current(&self.to);
-        to_task.copy(&from_task);
+        to_task.copy_from(&from_task);
 
         let mut batch = ts.batch();
         batch.save(&to_task)?;
@@ -284,14 +292,20 @@ impl Cmd for Rename {
     }
 }
 
-fn create_tempfile() -> Result<TempFile> {
+fn create_tempfile(ext: &str) -> Result<TempFile> {
     let length = 8;
     let charset = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes();
 
     let mut rng = thread_rng();
-    let mut filename = ".chore".to_string();
-    (0..length).for_each(|_| filename.push(*rng.choose(charset).unwrap() as char));
-    filename.push_str(".sh");
+    let mut file_name = ".chore".to_string();
+    (0..length).for_each(|_| file_name.push(*rng.choose(charset).unwrap() as char));
 
-    TempFile::create(filename)
+    if !ext.is_empty() {
+        if !ext.starts_with('.') {
+            file_name.push('.');
+        }
+        file_name.push_str(ext);
+    }
+
+    TempFile::create(file_name)
 }

@@ -16,6 +16,7 @@ impl Chore {
                 (@arg inherit: -i --inherit)
                 (@arg filename: )
                 (@arg src_task: -t --task +takes_value)
+                (@arg editor: -e --editor +takes_value)
             )
             (@subcommand edit =>
                 (about: "Edit a task")

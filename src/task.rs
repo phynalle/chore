@@ -200,21 +200,32 @@ impl Task {
         self.inner.content = content;
     }
 
-    pub fn copy(&mut self, task: &Task) {
+    pub fn set_extension(&mut self, ext: &str) {
+        self.inner.extension = ext.to_owned();
+    }
+
+    pub fn extension(&self) -> &str {
+        &self.inner.extension
+    }
+
+    pub fn copy_from(&mut self, task: &Task) {
         self.inner = task.inner.clone();
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Inner {
-    pub inherit: bool,
-    pub content: Vec<u8>,
+struct Inner {
+    inherit: bool,
+    #[serde(default = "String::default")]
+    extension: String,
+    content: Vec<u8>,
 }
 
 impl Default for Inner {
     fn default() -> Self {
         Inner {
             content: Vec::new(),
+            extension: String::new(),
             inherit: false,
         }
     }
