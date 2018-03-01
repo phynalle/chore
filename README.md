@@ -1,5 +1,5 @@
 # chore
-chore is a directory-dependent task runner.
+chore is a directory-dependent script runner.
 You can create your own tasks belonging to a directory in which you can only execute them
 
 ## Getting Started
