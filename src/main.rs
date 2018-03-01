@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate clap;
+extern crate colored;
 extern crate rand;
 extern crate rocksdb;
 extern crate serde;

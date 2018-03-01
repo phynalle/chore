@@ -10,3 +10,4 @@ authors = ["phynalle <phynalism@gmail.com>"]
 "clap" = "~2.29"
 "rocksdb" = "0.9"
 "rand" = "0.4"
+"colored" = "1.6"

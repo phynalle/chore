@@ -2,6 +2,7 @@ use std::io::{stdin, stdout, Cursor, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::fs::File;
+use std::collections::HashMap;
 
 use rand::{thread_rng, Rng};
 
@@ -10,20 +11,33 @@ use error::{Error, Result};
 use task::{Task, TaskError, TaskSystem};
 use tempfile::TempFile;
 
+use colored::*;
+
 fn validate_task_name(task: &str) -> Result<()> {
-    if task == "." || task == ".." || task.contains('/') {
-        Err(Error::new("Invalid task name"))
+    let suggest = if task == "." || task == ".." || task.ends_with('/') {
+        "A task is like a file rather than a directory".to_string()
+    } else if task.contains('/') {
+        format!(
+            "If you want to create a task in another directory, you should go there and try again.
+\tOr could you drop '{}' in your task?",
+            "/".green()
+        )
     } else {
-        Ok(())
-    }
+        return Ok(());
+    };
+
+    Err(Error::with_suggest(
+        format!("'{}' is invalid name for a task", task.yellow()),
+        suggest,
+    ))
 }
 
 fn try_overwrite(task: &str) -> bool {
     let (i, o) = (stdin(), stdout());
 
     print!(
-        "task '{}' already exists. do you want to overwrite it? [y/n]: ",
-        task
+        "Task '{}' already exists. Do you want to overwrite it? [y/n]: ",
+        task.yellow(),
     );
     if o.lock().flush().is_err() {
         return false;
@@ -91,7 +105,10 @@ impl Cmd for New {
         task.set_extension(&self.ext);
         task.set_inherit(self.inherit);
         task.set_content(content);
-        ts.save(&task).map_err(|e| e.into())
+        ts.save(&task)?;
+
+        print_done("New task is created successfully!");
+        Ok(())
     }
 }
 
@@ -107,11 +124,7 @@ impl Cmd for Edit {
         let ts = TaskSystem::new(db);
         let mut task = match ts.open(&self.task) {
             Ok(task) => task,
-            Err(TaskError::NotFound) => {
-                // Print beautiful Not Found error message
-                return Err(From::from(TaskError::NotFound));
-            }
-            Err(e) => return Err(From::from(e)),
+            Err(e) => return Err(e.into()),
         };
 
         let mut file = create_tempfile(task.extension()).expect("failed to open temp file");
@@ -132,6 +145,7 @@ impl Cmd for Edit {
             return Err(Error::new("failed to write file"));
         }
 
+        print_done("The task is edited successfully!");
         Ok(())
     }
 }
@@ -165,13 +179,13 @@ impl Cmd for Run {
                     }
                 }
                 Err(e) => match e {
-                    TaskError::NotFound => (),
+                    TaskError::NotFound(_) => (),
                     _ => return Err(e.into()),
                 },
             }
 
             if !dir.pop() {
-                return Err(Error::Task(TaskError::NotFound));
+                return Err(TaskError::NotFound(self.task.clone()).into());
             }
 
             is_cwd = false;
@@ -187,7 +201,6 @@ impl Cmd for Run {
             .spawn()?
             .wait()?;
 
-        println!("path: {:?}", file.path());
         let mut cmd = Command::new(file.path());
         let mut child: Child = cmd.arg(file.path()).args(&self.args).spawn()?;
         let _ = child.wait()?;
@@ -202,16 +215,14 @@ pub struct Show {
 impl Cmd for Show {
     fn run(&self) -> Result<()> {
         validate_task_name(&self.task)?;
-
         let db = open_database().expect("unabled to open db");
         let ts = TaskSystem::new(db);
         let task: Task = ts.open(&self.task)?;
 
-        println!("Inherit: {}", task.inherit());
-        println!(
-            "Source: \n{}",
-            String::from_utf8_lossy(task.content()).to_owned()
-        );
+        println!("{}", "[options]".green().bold());
+        println!("inherit: {}", task.inherit().to_string().red());
+        println!("{}", "[content]".green().bold());
+        println!("{}", String::from_utf8_lossy(task.content()).to_owned());
         Ok(())
     }
 }
@@ -239,18 +250,31 @@ impl Cmd for List {
         let db = open_database()?;
         let ts = TaskSystem::new(db);
 
-        let mut dir = self.dir.clone();
+        let mut task_names = HashMap::new();
+        let mut dir: PathBuf = self.dir.clone();
         let mut is_cwd = true;
 
         loop {
+            let mut print_dir = false;
             for task in ts.scan(&dir, true)? {
+                if task_names.get(task.name()).is_some() {
+                    // Only first found task is visible
+                    continue;
+                }
+
                 if is_cwd || task.inherit() {
-                    println!(
-                        "[{}]: location: {}, inherit: {}",
-                        task.name(),
-                        task.path(),
-                        task.inherit()
-                    );
+                    task_names.insert(task.name().to_owned(), true);
+
+                    if !print_dir {
+                        let mut message = format!("[{}", dir.to_string_lossy().green());
+                        if is_cwd {
+                            message.push_str(&format!(" {}", "(current)".red()));
+                        }
+                        message.push(']');
+                        println!("{}", message);
+                        print_dir = true;
+                    }
+                    println!("  {}", task.name(),);
                 }
             }
 
@@ -298,7 +322,10 @@ fn create_tempfile(ext: &str) -> Result<TempFile> {
 
     let mut rng = thread_rng();
     let mut file_name = ".chore".to_string();
-    (0..length).for_each(|_| file_name.push(*rng.choose(charset).unwrap() as char));
+
+    for _ in 0..length {
+        file_name.push(*rng.choose(charset).unwrap() as char);
+    }
 
     if !ext.is_empty() {
         if !ext.starts_with('.') {
@@ -308,4 +335,8 @@ fn create_tempfile(ext: &str) -> Result<TempFile> {
     }
 
     TempFile::create(file_name)
+}
+
+fn print_done(message: &str) {
+    println!("    {} {}", "Done".green().bold(), message)
 }

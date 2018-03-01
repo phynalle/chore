@@ -4,64 +4,80 @@ use std::io;
 use std::error;
 use rocksdb;
 use task::TaskError;
+use std::error::Error as ErrorTrait;
 
 pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
-pub enum Error {
-    Io(io::Error),
-    Task(TaskError),
-    Message(String),
+pub struct Error {
+    message: String,
+    suggest: String,
 }
 
 impl Error {
     pub fn new<S: AsRef<str>>(message: S) -> Error {
-        Error::Message(message.as_ref().to_owned())
+        Error {
+            message: message.as_ref().to_owned(),
+            suggest: String::new(),
+        }
+    }
+
+    pub fn with_suggest<S: AsRef<str>>(message: S, suggest: S) -> Error {
+        Error {
+            message: message.as_ref().to_owned(),
+            suggest: suggest.as_ref().to_owned(),
+        }
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Io(ref e) => write!(f, "IO Error: {}", e),
-            Error::Task(ref e) => write!(f, "Task: {}", e),
-            Error::Message(ref e) => write!(f, "Error: {}", e),
-        }
+        format_error(f, &self.message, &self.suggest)
     }
 }
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        match *self {
-            Error::Io(ref e) => e.description(),
-            Error::Task(ref e) => e.description(),
-            Error::Message(ref e) => e.as_str(),
-        }
+        self.message.as_str()
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Io(ref e) => Some(e),
-            Error::Task(ref e) => Some(e),
-            _ => None,
-        }
+        None
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Error {
-        Error::Io(err)
+        Error::new(err.description())
     }
 }
 
 impl From<TaskError> for Error {
     fn from(err: TaskError) -> Error {
-        Error::Task(err)
+        match err {
+            TaskError::NotFound(s) => {
+                use colored::*;
+                let message = format!("Task '{}' doesn't exist", s.yellow());
+                Error::new(message)
+            }
+            _ => Error::new(err.description()),
+        }
     }
 }
 
 impl From<rocksdb::Error> for Error {
     fn from(err: rocksdb::Error) -> Error {
-        Error::new(&err)
+        Error::new(err.description())
     }
+}
+
+fn format_error(f: &mut fmt::Formatter, message: &str, suggest: &str) -> fmt::Result {
+    use colored::*;
+
+    let mut details = String::new();
+    fmt::write(&mut details, format_args!("{}\n", message))?;
+    if !suggest.is_empty() {
+        fmt::write(&mut details, format_args!("\n\t{}\n", suggest))?;
+    }
+    write!(f, "{} {}", "error:".red().bold(), details,)
 }

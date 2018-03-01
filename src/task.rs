@@ -30,7 +30,7 @@ impl TaskSystem {
     pub fn exists<P: AsRef<Path>>(&self, path: P) -> Result<bool> {
         match self.open(path) {
             Ok(_) => Ok(true),
-            Err(TaskError::NotFound) => Ok(false),
+            Err(TaskError::NotFound(_)) => Ok(false),
             Err(e) => Err(e),
         }
     }
@@ -40,7 +40,9 @@ impl TaskSystem {
         let key = TaskSystem::key(&abs_path)?;
         match self.db.get(key.as_bytes())? {
             Some(v) => Task::from_slice(&abs_path, &v),
-            None => Err(TaskError::NotFound),
+            None => Err(TaskError::NotFound(
+                path.as_ref().to_string_lossy().to_string(),
+            )),
         }
     }
 
@@ -234,7 +236,7 @@ impl Default for Inner {
 #[derive(Debug)]
 pub enum TaskError {
     InvalidPath,
-    NotFound,
+    NotFound(String),
     BrokenData,
     DBOperationFailed(rocksdb::Error),
 }
@@ -242,16 +244,20 @@ pub enum TaskError {
 impl fmt::Display for TaskError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::error::Error;
-        write!(f, "{}", self.description())
+        match *self {
+            // TaskError::InvalidPath(ref s) => write!(f, "{}: {}", s, self.description()),
+            TaskError::NotFound(ref s) => write!(f, "{}: {}", s, self.description()),
+            _ => write!(f, "{}", self.description()),
+        }
     }
 }
 
 impl error::Error for TaskError {
     fn description(&self) -> &str {
         match *self {
-            TaskError::InvalidPath => "invalid path",
-            TaskError::NotFound => "task not found",
-            TaskError::BrokenData => "broken data",
+            TaskError::InvalidPath => "Invalid path",
+            TaskError::NotFound(_) => "No available task",
+            TaskError::BrokenData => "Broken data",
             TaskError::DBOperationFailed(ref e) => e.description(),
         }
     }
