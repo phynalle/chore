@@ -9,9 +9,11 @@ pub fn normalize<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
         let mut cur = env::current_dir().ok()?;
         for comp in components {
             match comp {
-                Component::ParentDir => if !cur.pop() {
-                    return None;
-                },
+                Component::ParentDir => {
+                    if !cur.pop() {
+                        return None;
+                    }
+                }
                 Component::CurDir => continue,
                 Component::Normal(s) => cur.push(s),
                 _ => unreachable!(),

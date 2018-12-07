@@ -1,9 +1,9 @@
+use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::env;
 use std::path::{Path, PathBuf};
 
-use error::{Error, Result};
+use crate::error::{Error, Result};
 
 pub struct TempFile {
     inner: Option<File>,

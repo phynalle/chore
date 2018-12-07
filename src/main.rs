@@ -14,11 +14,11 @@ mod app;
 mod command;
 mod db;
 mod error;
+mod path;
 mod task;
 mod tempfile;
-mod path;
 
-use command::Cmd;
+use crate::command::Cmd;
 
 fn main() {
     let matches = app::Chore::initialize().get_matches();
@@ -59,7 +59,7 @@ fn main() {
             args: submatches
                 .values_of("args")
                 .map(|values| values.map(|s| s.to_owned()).collect())
-                .unwrap_or_else(|| Vec::new()),
+                .unwrap_or_else(Vec::new),
         }),
         "show" => Box::new(command::Show {
             task: submatches.value_of("task").unwrap().to_owned(),

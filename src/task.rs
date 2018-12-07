@@ -3,6 +3,7 @@ use std::error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::result;
+
 use rocksdb::{self, DB};
 use serde_json;
 
@@ -18,7 +19,7 @@ impl TaskSystem {
     }
 
     fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf> {
-        use path::normalize;
+        use crate::path::normalize;
         normalize(&path).ok_or(TaskError::InvalidPath)
     }
 
@@ -76,7 +77,7 @@ impl TaskSystem {
         })
     }
 
-    pub fn batch<'a>(&'a self) -> WriteBatch<'a> {
+    pub fn batch(&self) -> WriteBatch {
         WriteBatch {
             ts: self,
             batch: rocksdb::WriteBatch::default(),

@@ -1,10 +1,12 @@
-use std::fmt;
-use std::result;
-use std::io;
 use std::error;
-use rocksdb;
-use task::TaskError;
 use std::error::Error as ErrorTrait;
+use std::fmt;
+use std::io;
+use std::result;
+
+use rocksdb;
+
+use crate::task::TaskError;
 
 pub type Result<T> = result::Result<T, Error>;
 

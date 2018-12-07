@@ -1,5 +1,6 @@
-use error::Result;
 use rocksdb::{Options, DB};
+
+use crate::error::Result;
 
 pub fn open_database() -> Result<DB> {
     let mut db_opts = Options::default();

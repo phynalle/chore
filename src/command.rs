@@ -1,15 +1,15 @@
+use std::collections::HashMap;
+use std::fs::File;
 use std::io::{stdin, stdout, Cursor, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command};
-use std::fs::File;
-use std::collections::HashMap;
 
 use rand::{thread_rng, Rng};
 
-use db::open_database;
-use error::{Error, Result};
-use task::{Task, TaskError, TaskSystem};
-use tempfile::TempFile;
+use crate::db::open_database;
+use crate::error::{Error, Result};
+use crate::task::{Task, TaskError, TaskSystem};
+use crate::tempfile::TempFile;
 
 use colored::*;
 
@@ -79,7 +79,7 @@ impl Cmd for New {
         let mut file: Box<Read> = if !self.filename.is_empty() {
             Box::new(File::open(&self.filename)?)
         } else if !self.src_task.is_empty() {
-            let mut task = ts.open(&self.src_task)?;
+            let task = ts.open(&self.src_task)?;
             Box::new(Cursor::new(task.take()))
         } else {
             let mut file = create_tempfile(&self.ext).expect("failed to open temp file");
@@ -318,7 +318,7 @@ impl Cmd for Rename {
 
 fn create_tempfile(ext: &str) -> Result<TempFile> {
     let length = 8;
-    let charset = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_bytes();
+    let charset = b"abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     let mut rng = thread_rng();
     let mut file_name = ".chore".to_string();
